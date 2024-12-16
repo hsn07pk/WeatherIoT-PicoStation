@@ -105,22 +105,32 @@ def serve_web():
     except Exception as e:
         log("ERROR", f"Exception in serve_web: {e}")
 
-# Function to process and get sensor data
+# Get sensor measurements (temperature and pressure)
+def get_sensor_measurements(sensor):
+    measurements = sensor.measurements
+    temperature = round(measurements['t'], 2)  # Temperature in Celsius
+    pressure = round(measurements['p'], 2)  # Pressure in hPa
+    
+    # Log the sensor readings
+    log("INFO", f"Temperature: {temperature}°C, Pressure: {pressure} hPa")
+    return temperature, pressure
+
+# Function to process sensor data into 
+def format_data(temperature_data, pressure_data):
+
+    return {
+        "temperature": temperature_data,
+        "pressure": pressure_data
+    }
+
+# Function to process sensor data
 def process_data(sensor):
     try:
-        # Get sensor measurements (temperature and pressure)
-        measurements = sensor.measurements
-        temperature = round(measurements['t'], 2)  # Temperature in Celsius
-        pressure = round(measurements['p'], 2)  # Pressure in hPa
-
-        # Log the sensor readings
-        log("INFO", f"Temperature: {temperature}°C, Pressure: {pressure} hPa")
+        temperature, pressure = get_sensor_measurements(sensor)
 
         # Return structured data for MQTT and API
-        return {
-            "temperature": temperature,
-            "pressure": pressure
-        }
+        return format_data(temperature, pressure)
+    
     except Exception as e:
         log("ERROR", f"Error while processing sensor data: {e}")
         return None
@@ -195,6 +205,25 @@ def frequent_small_payload(mqtt_client):
 def infrequent_small_payload(mqtt_client):
     create_payload_timer(mqtt_client, 60000)
 
+def infrequent_large_payload(mqtt_client):
+    temperature_data_buffer = []  # Buffer to store data samples
+    pressure_data_buffer = []
+    def callback(timer):
+        temperature, pressure = get_sensor_measurements(sensor)
+        if temperature and pressure:
+            temperature_data_buffer.append(temperature)
+            pressure_data_buffer.append(pressure)
+        if len(temperature_data_buffer) >= 60:
+            data = format_data(temperature_data_buffer, pressure_data_buffer)
+            send_mqtt(mqtt_client, MQTT_TOPIC_DATA_COLLECTION, data)
+            temperature_data_buffer.clear()
+            pressure_data_buffer.clear()
+
+    machine.Timer(period=1000, 
+                mode=machine.Timer.PERIODIC, 
+                callback=callback)
+
+
 # Main function
 def main():
     try:
@@ -207,7 +236,8 @@ def main():
             mqtt_client = connect_mqtt()
 
             frequent_small_payload(mqtt_client)
-            infrequent_small_payload(mqtt_client)
+            # infrequent_small_payload(mqtt_client)
+            # infrequent_large_payload(mqtt_client)
 
             while True:
                 time.sleep(10)
