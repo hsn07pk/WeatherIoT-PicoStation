@@ -193,7 +193,7 @@ def frequent_small_payload(mqtt_client):
     create_payload_timer(mqtt_client, 1000)
 
 def infrequent_small_payload(mqtt_client):
-    create_payload_timer(mqtt_client, 10000)
+    create_payload_timer(mqtt_client, 60000)
 
 # Main function
 def main():
