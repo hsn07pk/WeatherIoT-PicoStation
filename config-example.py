@@ -6,3 +6,4 @@ BROKER_PORT = 1883
 BROKER_USERNAME = "username"  # Remove if not used
 BROKER_PASSWORD = "helloworld"  # Remove if not used
 MQTT_TOPIC = "sensor/data"  # Topic for sensor data
+MQTT_TOPIC_DATA_COLLECTION = "sensor/data_collection"  # Topic for sensor data
