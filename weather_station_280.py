@@ -184,7 +184,10 @@ def frequent_small_payload(mqtt_client):
         data = process_data(sensor)
         if data:
             send_mqtt(mqtt_client, MQTT_TOPIC, data)
-    return callback
+
+    machine.Timer(period=1000, 
+                          mode=machine.Timer.PERIODIC, 
+                          callback=callback)
 
 # Main function
 def main():
@@ -197,9 +200,7 @@ def main():
             log("INFO", "Wi-Fi connected successfully, proceeding with MQTT connection.")
             mqtt_client = connect_mqtt()
 
-            machine.Timer(period=1000, 
-                          mode=machine.Timer.PERIODIC, 
-                          callback=frequent_small_payload(mqtt_client))
+            frequent_small_payload(mqtt_client)
 
             while True:
                 time.sleep(10)
