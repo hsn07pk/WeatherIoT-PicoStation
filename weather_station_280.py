@@ -7,10 +7,11 @@ from libs.simple import MQTTClient
 import urequests
 from libs.bmp280_i2c import BMP280I2C
 from libs.bmp280_configuration import BMP280Configuration
+from config import *
 
 # Constants for Wi-Fi and MQTT
-SSID = "Cudy-0948"
-PASSWORD = "mashfik12345"
+# SSID = "Cudy-0948"
+# PASSWORD = "mashfik12345"
 AP_SSID = "Pico_Wifi_AP"  # AP name
 AP_PASSWORD = "123456789"  # AP password (change as needed)
 API_URL = "http://example.com/api/weather"
