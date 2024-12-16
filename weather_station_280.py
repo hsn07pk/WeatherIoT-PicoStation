@@ -7,19 +7,14 @@ from libs.simple import MQTTClient
 import urequests
 from libs.bmp280_i2c import BMP280I2C
 from libs.bmp280_configuration import BMP280Configuration
+import ssl
 from config import *
 
 # Constants for Wi-Fi and MQTT
-# SSID = "Cudy-0948"
-# PASSWORD = "mashfik12345"
 AP_SSID = "Pico_Wifi_AP"  # AP name
 AP_PASSWORD = "123456789"  # AP password (change as needed)
 API_URL = "http://example.com/api/weather"
-BROKER_ADDRESS = "192.168.10.117"  # MQTT Broker Address
-BROKER_PORT = 1883
-BROKER_USERNAME = "username"  # Remove if not used
-BROKER_PASSWORD = "helloworld"  # Remove if not used
-MQTT_TOPIC = "sensor/data"  # Topic for sensor data
+
 
 # I2C Configuration
 I2C_SCL_PIN = 5
@@ -152,13 +147,27 @@ def reconnect_mqtt(client):
         time.sleep(5)  # Retry after 5 seconds
         reconnect_mqtt(client)
 
+def ssl_context():
+    try:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT) # TLS_CLIENT = connect as client not server/broker
+        context.verify_mode = ssl.CERT_NONE # CERT_NONE = not verify server/broker cert - CERT_REQUIRED: verify
+        return context
+    except Exception as e:
+        log("ERROR", f"SSL context error: {e}")
+        return None
+    
 # Function to establish MQTT connection
 def connect_mqtt():
     client = None
     retry_count = 0
+    context = ssl_context()
     while client is None and retry_count < 5:
         try:
-            client = MQTTClient(client_id="pico", server=BROKER_ADDRESS, port=BROKER_PORT, user=BROKER_USERNAME, password=BROKER_PASSWORD)
+            if context:
+                client = MQTTClient(client_id="pico", server=BROKER_ADDRESS, port=BROKER_PORT, user=BROKER_USERNAME, password=BROKER_PASSWORD, ssl=context)
+            else:
+                client = MQTTClient(client_id="pico", server=BROKER_ADDRESS, port=BROKER_PORT, user=BROKER_USERNAME, password=BROKER_PASSWORD)
+                
             client.connect()
             log("INFO", "Connected to MQTT broker")
         except Exception as e:
