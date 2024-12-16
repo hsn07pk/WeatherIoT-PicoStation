@@ -179,6 +179,13 @@ def connect_mqtt():
         raise ConnectionError("Failed to connect to MQTT broker")
     return client
 
+def frequent_small_payload(mqtt_client):
+    def callback(timer):
+        data = process_data(sensor)
+        if data:
+            send_mqtt(mqtt_client, MQTT_TOPIC, data)
+    return callback
+
 # Main function
 def main():
     try:
@@ -190,12 +197,13 @@ def main():
             log("INFO", "Wi-Fi connected successfully, proceeding with MQTT connection.")
             mqtt_client = connect_mqtt()
 
-            # Loop to continuously send sensor data via MQTT
+            machine.Timer(period=1000, 
+                          mode=machine.Timer.PERIODIC, 
+                          callback=frequent_small_payload(mqtt_client))
+
             while True:
-                data = process_data(sensor)
-                if data:
-                    send_mqtt(mqtt_client, MQTT_TOPIC, data)
-                time.sleep(1) # Delay between sensor readings
+                time.sleep(10)
+
     except Exception as e:
         log("CRITICAL", f"Critical error occurred: {e}")
         machine.reset()  # Reset the device to restart the program
