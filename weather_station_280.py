@@ -195,7 +195,7 @@ def main():
                 data = process_data(sensor)
                 if data:
                     send_mqtt(mqtt_client, MQTT_TOPIC, data)
-                time.sleep(1)  # Send data every minute
+                time.sleep(1) # Delay between sensor readings
     except Exception as e:
         log("CRITICAL", f"Critical error occurred: {e}")
         machine.reset()  # Reset the device to restart the program
