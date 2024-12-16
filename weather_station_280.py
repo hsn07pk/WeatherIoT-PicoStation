@@ -179,15 +179,21 @@ def connect_mqtt():
         raise ConnectionError("Failed to connect to MQTT broker")
     return client
 
-def frequent_small_payload(mqtt_client):
+def create_payload_timer(mqtt_client, interval):
     def callback(timer):
         data = process_data(sensor)
         if data:
             send_mqtt(mqtt_client, MQTT_TOPIC, data)
 
-    machine.Timer(period=1000, 
-                          mode=machine.Timer.PERIODIC, 
-                          callback=callback)
+    machine.Timer(period=interval, 
+                  mode=machine.Timer.PERIODIC, 
+                  callback=callback)
+
+def frequent_small_payload(mqtt_client):
+    create_payload_timer(mqtt_client, 1000)
+
+def infrequent_small_payload(mqtt_client):
+    create_payload_timer(mqtt_client, 10000)
 
 # Main function
 def main():
@@ -201,6 +207,7 @@ def main():
             mqtt_client = connect_mqtt()
 
             frequent_small_payload(mqtt_client)
+            infrequent_small_payload(mqtt_client)
 
             while True:
                 time.sleep(10)
