@@ -1,24 +1,34 @@
-// import Image from "next/image";
+import Image from "next/image";
+// import { TextGenerateEffect } from "@/components/ui/text-generate-effect";
 import { BackgroundBeamsWithCollision } from "@/components/ui/background-beams-with-collision";
 
 export default function Home() {
+  // const words = `Developed by Team 6.`;
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <BackgroundBeamsWithCollision>
-          <h2 className="text-2xl relative z-20 md:text-4xl lg:text-7xl font-bold text-center text-black dark:text-white font-sans tracking-tight">
-            What&apos;s cooler than Beams?{" "}
-            <div className="relative mx-auto inline-block w-max [filter:drop-shadow(0px_1px_3px_rgba(27,_37,_80,_0.14))]">
-              <div className="absolute left-0 top-[1px] bg-clip-text bg-no-repeat text-transparent bg-gradient-to-r py-4 from-purple-500 via-violet-500 to-pink-500 [text-shadow:0_0_rgba(0,0,0,0.1)]">
-                <span className="">Exploding beams.</span>
+    <div className="min-h-screen font-[family-name:var(--font-geist-sans)]">
+      <main className="">
+       
+
+        <div>
+          <BackgroundBeamsWithCollision className="flex-col">
+          <Image className="dark:invert" src="/snow.png" alt="cloudy logo" width={120} height={120} priority />
+          <h1 className="text-6xl relative mt-6 z-20 md:text-4xl lg:text-7xl font-bold text-center text-black dark:text-white font-sans tracking-tight">-17°</h1>
+            <h2 className="text-2xl relative z-20 md:text-4xl lg:text-7xl font-bold text-center text-black dark:text-white font-sans tracking-tight">
+              
+              <div className="relative mx-auto inline-block w-max [filter:drop-shadow(0px_1px_3px_rgba(27,_37,_80,_0.14))]">
+              
+                <div className="relative bg-clip-text text-transparent bg-no-repeat bg-gradient-to-r from-purple-500 via-violet-500 to-pink-500 py-4">
+                  <span className="">Pressure: 983 Pa</span>
+                </div>
               </div>
-              <div className="relative bg-clip-text text-transparent bg-no-repeat bg-gradient-to-r from-purple-500 via-violet-500 to-pink-500 py-4">
-                <span className="">Exploding beams.</span>
-              </div>
-            </div>
-          </h2>
-        </BackgroundBeamsWithCollision>
+          
+            </h2>
+          </BackgroundBeamsWithCollision>
+        </div>
       </main>
+      {/* <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
+        <TextGenerateEffect words={words} />
+      </footer> */}
     </div>
   );
 }
