@@ -7,18 +7,14 @@ from libs.simple import MQTTClient
 import urequests
 from libs.bmp280_i2c import BMP280I2C
 from libs.bmp280_configuration import BMP280Configuration
+import ssl
+from config import *
 
 # Constants for Wi-Fi and MQTT
-SSID = "Cudy-0948"
-PASSWORD = "mashfik12345"
 AP_SSID = "Pico_Wifi_AP"  # AP name
 AP_PASSWORD = "123456789"  # AP password (change as needed)
 API_URL = "http://example.com/api/weather"
-BROKER_ADDRESS = "192.168.10.117"  # MQTT Broker Address
-BROKER_PORT = 1883
-BROKER_USERNAME = "username"  # Remove if not used
-BROKER_PASSWORD = "helloworld"  # Remove if not used
-MQTT_TOPIC = "sensor/data"  # Topic for sensor data
+
 
 # I2C Configuration
 I2C_SCL_PIN = 5
@@ -109,22 +105,32 @@ def serve_web():
     except Exception as e:
         log("ERROR", f"Exception in serve_web: {e}")
 
-# Function to process and get sensor data
+# Get sensor measurements (temperature and pressure)
+def get_sensor_measurements(sensor):
+    measurements = sensor.measurements
+    temperature = round(measurements['t'], 2)  # Temperature in Celsius
+    pressure = round(measurements['p'], 2)  # Pressure in hPa
+    
+    # Log the sensor readings
+    log("INFO", f"Temperature: {temperature}°C, Pressure: {pressure} hPa")
+    return temperature, pressure
+
+# Function to process sensor data into 
+def format_data(temperature_data, pressure_data):
+
+    return {
+        "temperature": temperature_data,
+        "pressure": pressure_data
+    }
+
+# Function to process sensor data
 def process_data(sensor):
     try:
-        # Get sensor measurements (temperature and pressure)
-        measurements = sensor.measurements
-        temperature = round(measurements['t'], 2)  # Temperature in Celsius
-        pressure = round(measurements['p'], 2)  # Pressure in hPa
-
-        # Log the sensor readings
-        log("INFO", f"Temperature: {temperature}°C, Pressure: {pressure} hPa")
+        temperature, pressure = get_sensor_measurements(sensor)
 
         # Return structured data for MQTT and API
-        return {
-            "temperature": temperature,
-            "pressure": pressure
-        }
+        return format_data(temperature, pressure)
+    
     except Exception as e:
         log("ERROR", f"Error while processing sensor data: {e}")
         return None
@@ -151,13 +157,27 @@ def reconnect_mqtt(client):
         time.sleep(5)  # Retry after 5 seconds
         reconnect_mqtt(client)
 
+def ssl_context():
+    try:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT) # TLS_CLIENT = connect as client not server/broker
+        context.verify_mode = ssl.CERT_NONE # CERT_NONE = not verify server/broker cert - CERT_REQUIRED: verify
+        return context
+    except Exception as e:
+        log("ERROR", f"SSL context error: {e}")
+        return None
+    
 # Function to establish MQTT connection
 def connect_mqtt():
     client = None
     retry_count = 0
+    context = ssl_context()
     while client is None and retry_count < 5:
         try:
-            client = MQTTClient(client_id="pico", server=BROKER_ADDRESS, port=BROKER_PORT, user=BROKER_USERNAME, password=BROKER_PASSWORD)
+            if context:
+                client = MQTTClient(client_id="pico", server=BROKER_ADDRESS, port=BROKER_PORT, user=BROKER_USERNAME, password=BROKER_PASSWORD, ssl=context)
+            else:
+                client = MQTTClient(client_id="pico", server=BROKER_ADDRESS, port=BROKER_PORT, user=BROKER_USERNAME, password=BROKER_PASSWORD)
+                
             client.connect()
             log("INFO", "Connected to MQTT broker")
         except Exception as e:
@@ -168,6 +188,41 @@ def connect_mqtt():
         log("CRITICAL", "Failed to connect to MQTT broker after 5 attempts")
         raise ConnectionError("Failed to connect to MQTT broker")
     return client
+
+def create_payload_timer(mqtt_client, interval):
+    def callback(timer):
+        data = process_data(sensor)
+        if data:
+            send_mqtt(mqtt_client, MQTT_TOPIC, data)
+
+    machine.Timer(period=interval, 
+                  mode=machine.Timer.PERIODIC, 
+                  callback=callback)
+
+def frequent_small_payload(mqtt_client):
+    create_payload_timer(mqtt_client, 1000)
+
+def infrequent_small_payload(mqtt_client):
+    create_payload_timer(mqtt_client, 60000)
+
+def infrequent_large_payload(mqtt_client):
+    temperature_data_buffer = []  # Buffer to store data samples
+    pressure_data_buffer = []
+    def callback(timer):
+        temperature, pressure = get_sensor_measurements(sensor)
+        if temperature and pressure:
+            temperature_data_buffer.append(temperature)
+            pressure_data_buffer.append(pressure)
+        if len(temperature_data_buffer) >= 60:
+            data = format_data(temperature_data_buffer, pressure_data_buffer)
+            send_mqtt(mqtt_client, MQTT_TOPIC_DATA_COLLECTION, data)
+            temperature_data_buffer.clear()
+            pressure_data_buffer.clear()
+
+    machine.Timer(period=1000, 
+                mode=machine.Timer.PERIODIC, 
+                callback=callback)
+
 
 # Main function
 def main():
@@ -180,12 +235,13 @@ def main():
             log("INFO", "Wi-Fi connected successfully, proceeding with MQTT connection.")
             mqtt_client = connect_mqtt()
 
-            # Loop to continuously send sensor data via MQTT
+            frequent_small_payload(mqtt_client)
+            # infrequent_small_payload(mqtt_client)
+            # infrequent_large_payload(mqtt_client)
+
             while True:
-                data = process_data(sensor)
-                if data:
-                    send_mqtt(mqtt_client, MQTT_TOPIC, data)
-                time.sleep(1)  # Send data every minute
+                time.sleep(10)
+
     except Exception as e:
         log("CRITICAL", f"Critical error occurred: {e}")
         machine.reset()  # Reset the device to restart the program

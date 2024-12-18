@@ -1,4 +1,6 @@
-from bmp280 import BMP280, BMP280Configuration
+# https://github.com/flrrth/pico-bmp280
+
+from .bmp280 import BMP280, BMP280Configuration
 
 
 class BMP280I2C(BMP280):

@@ -3,7 +3,7 @@
 from ustruct import unpack
 from utime import sleep_ms
 
-from bmp280_configuration import BMP280Configuration
+from .bmp280_configuration import BMP280Configuration
 
 
 class BMP280:

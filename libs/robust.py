@@ -51,4 +51,3 @@ class MQTTClient(simple.MQTTClient):
                 self.log(False, e)
             self.reconnect()
             attempts -= 1
-
