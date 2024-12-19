@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { InfluxDB } from "@influxdata/influxdb-client";
-
+import Link from "next/link";
 
 const INFLUX_URL = process.env.NEXT_PUBLIC_INFLUXDB_URL || "";
 const INFLUX_TOKEN = process.env.NEXT_PUBLIC_INFLUXDB_TOKEN || "";
@@ -53,7 +53,7 @@ export default function Dashboard() {
       <h2 className="text-2xl relative z-20 md:text-4xl lg:text-7xl font-bold text-center text-black dark:text-white font-sans tracking-tight">
               <div className="relative mx-auto inline-block w-max [filter:drop-shadow(0px_1px_3px_rgba(27,_37,_80,_0.14))]">
                 <div className="relative bg-clip-text text-transparent bg-no-repeat bg-gradient-to-r from-purple-500 via-violet-500 to-pink-500 py-4">
-                  <span className="">Temperature Log</span>
+                <Link href="/"><span className="">Temperature Log</span></Link> 
                 </div>
                
               </div>
