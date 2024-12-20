@@ -10,7 +10,7 @@ const BUCKET = "IotWeather";
 
 const fluxQuery = `
   from(bucket: "${BUCKET}")
-    |> range(start: -3h)
+    |> range(start: -96h)
     |> filter(fn: (r) => r._measurement == "mqtt_consumer")
     |> filter(fn: (r) => r._field == "pressure" )
     |> aggregateWindow(every: 30s, fn: mean, createEmpty: false)
