@@ -2,7 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 // import { TextGenerateEffect } from "@/components/ui/text-generate-effect";
-import { BackgroundBeamsWithCollision } from "@/components/ui/background-beams-with-collision";
+// import { BackgroundBeamsWithCollision } from "@/components/ui/background-beams-with-collision";
 import { useEffect, useState } from "react";
 import { InfluxDB } from "@influxdata/influxdb-client";
 
@@ -66,7 +66,8 @@ export default function Home() {
     <div className="min-h-screen font-[family-name:var(--font-geist-sans)]">
       <main className="">
         <div>
-          <BackgroundBeamsWithCollision className="flex-col">
+          {/* <BackgroundBeamsWithCollision className="flex-col"> */}
+          <div className="flex flex-col  items-center">
             {loadingTemperature && loadingPressure ? (
               <p>Loading...</p>
             ) : (
@@ -103,12 +104,13 @@ export default function Home() {
                     className='className="relative px-6 bg-clip-text text-transparent bg-no-repeat bg-gradient-to-r from-purple-500 via-violet-500 to-pink-500 py-4'
                     href="/pressure"
                   >
-                  Past Pressures
+                    Past Pressures
                   </Link>
                 </div>
               </>
             )}
-          </BackgroundBeamsWithCollision>
+            {/* </BackgroundBeamsWithCollision> */}
+          </div>
         </div>
       </main>
     </div>
