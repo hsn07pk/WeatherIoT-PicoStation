@@ -1,196 +1,94 @@
 # WeatherIoT-PicoStation
 
-[![Python](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
-[![MicroPython](https://img.shields.io/badge/micropython-1.19+-yellow.svg)](https://micropython.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Weather station on a Raspberry Pi Pico W: MicroPython firmware reads a BMP280 over I2C and publishes MQTT, data lands in InfluxDB, and a Next.js app renders current and historical readings.
 
-## 🌡️ Overview
+## What it does
 
-WeatherIoT-PicoStation is a comprehensive IoT weather monitoring system built on the Raspberry Pi Pico W platform. The system collects environmental data (temperature and pressure) using the BMP280 sensor, processes it locally, and transmits it to cloud services for storage and visualization.
+The firmware samples temperature and pressure once per second and publishes each reading as JSON to an MQTT broker over TLS. On the other end, a Next.js app queries InfluxDB directly from the browser and shows the latest reading plus 96-hour history tables for temperature and pressure.
 
-### Key Features
-- Real-time temperature and pressure monitoring
-- Automatic Wi-Fi configuration with fallback AP mode
-- Secure MQTT data transmission
-- Cloud storage with InfluxDB
-- Web-based visualization
-- Grafana dashboards
+Two details are worth a look:
 
-## 🏗️ System Architecture
+- Wi-Fi provisioning fallback. If the Pico cannot join the configured network after five attempts, it flips into access-point mode (`Pico_Wifi_AP`), runs a bare `socket`-level HTTP server on port 80, and serves a form where you can submit new credentials. The POST body is parsed by hand from the raw request bytes; there is no HTTP framework on the device.
+- Publish strategies. `weather_station_280.py` contains three interchangeable timer-driven modes: a reading every second (active), a reading every 60 seconds, and a batching mode that buffers 60 samples and publishes them as one payload to a separate topic (`sensor/data_collection`). Swapping modes is one line in `main()`.
 
-### Hardware Layer
-- Raspberry Pi Pico W controller
-- BMP280 environmental sensor
-- I2C communication protocol
-- GPIO configuration:
-  - SDA: GPIO 4
-  - SCL: GPIO 5
-  - Power: 3.3V
+## Architecture
 
-### Software Layer
-1. **Embedded System**
-   - MicroPython runtime
-   - I2C sensor communication
-   - Wi-Fi management
-   - MQTT client implementation
-
-2. **Cloud Infrastructure**
-   - HiveMQ broker for data relay
-   - InfluxDB for data storage
-   - Telegraf for data collection
-   - Next.js web application
-   - Grafana dashboards
-
-## 🛠️ Setup Instructions
-
-### Hardware Setup
-
-1. Connect BMP280 sensor to Pico W:
-   - SDA → GPIO 4
-   - SCL → GPIO 5
-   - VCC → 3.3V
-   - GND → GND
-
-### Software Setup
-
-1. Flash MicroPython to Pico W:
-```bash
-# Download latest MicroPython firmware
-# Flash using your preferred method
+```mermaid
+flowchart LR
+    S[BMP280 sensor] -->|I2C, SCL 5 / SDA 4| P[Pico W MicroPython]
+    P -->|MQTT over TLS, topic sensor/data| B[MQTT broker]
+    B --> T[MQTT-to-InfluxDB bridge]
+    T --> I[(InfluxDB bucket IotWeather)]
+    I -->|Flux queries| W[Next.js app]
 ```
 
-2. Install project files:
-```bash
-# Clone repository
-git clone https://github.com/yourusername/WeatherIoT-PicoStation.git
-cd WeatherIoT-PicoStation
+The web app queries the measurement `mqtt_consumer`, the name Telegraf's MQTT consumer input writes by default, so a Telegraf instance (or an equivalent bridge) is expected between the broker and InfluxDB. Its configuration is not part of this repository.
 
-# Copy files to Pico W
-# Use Thonny or your preferred method
+## Repository layout
+
+```
+hardware/
+  weather_station_280.py        Firmware entrypoint: Wi-Fi, MQTT, timers, AP fallback
+  config-example.py             Template for config.py: Wi-Fi and broker credentials, topics
+  libs/
+    bmp280*.py                  BMP280 driver (vendored from flrrth/pico-bmp280)
+    simple.py, robust.py        umqtt MQTT client (vendored from micropython-lib)
+weatherapp/
+  src/app/page.tsx              Latest temperature and pressure (Flux last())
+  src/app/temperature/page.tsx  96 h history, 30 s mean aggregation
+  src/app/pressure/page.tsx     Same for pressure
 ```
 
-3. Configure settings:
+## Hardware
+
+- Raspberry Pi Pico W running MicroPython
+- BMP280 sensor on I2C bus 0: SCL to GPIO 5, SDA to GPIO 4, address 0x76
+
+## Firmware setup
+
+1. Flash MicroPython onto the Pico W.
+2. Copy `hardware/config-example.py` to `hardware/config.py` and set your own values:
+
 ```python
-# Edit config.py with your credentials
-SSID = "your_wifi_ssid"
-PASSWORD = "your_wifi_password"
-BROKER_ADDRESS = "your_mqtt_broker"
+SSID = "..."               # Wi-Fi network
+PASSWORD = "..."
+BROKER_ADDRESS = "..."     # MQTT broker host
+BROKER_PORT = 1883
+BROKER_USERNAME = "..."
+BROKER_PASSWORD = "..."
+MQTT_TOPIC = "sensor/data"
+MQTT_TOPIC_DATA_COLLECTION = "sensor/data_collection"
 ```
 
-### Cloud Setup
+3. Copy `hardware/` to the board (Thonny, `mpremote`, or similar) and run `weather_station_280.py`.
 
-1. HiveMQ Setup:
-```bash
-# Configure HiveMQ broker
-# Set up authentication
-```
+Behavior on the wire: payloads are `{"temperature": <C>, "pressure": <hPa>}`, values rounded to two decimals. A failed publish triggers a reconnect loop; an unrecoverable error in `main()` calls `machine.reset()` so the station restarts rather than hanging.
 
-2. InfluxDB Setup:
-```bash
-# Create InfluxDB bucket
-# Generate API tokens
-```
+Note on TLS: the firmware builds an `ssl` client context with `CERT_NONE`, so the broker connection is encrypted but the broker certificate is not verified.
 
-3. Telegraf Configuration:
-```bash
-# Install Telegraf
-# Copy telegraf.conf to /etc/telegraf/
-# Start Telegraf service
-```
+## Web app setup
 
-4. Web Application:
 ```bash
-cd web
+cd weatherapp
 npm install
-npm run dev
+npm run dev   # Next.js 15, Turbopack
 ```
 
-## 📊 Data Flow
+Set the InfluxDB connection in the environment (for example `weatherapp/.env.local`):
 
-1. **Sensing Layer**
-   - BMP280 sensor readings (temperature, pressure)
-   - I2C communication protocol
-   - Data sampling rates: 1s/60s configurable
+```
+NEXT_PUBLIC_INFLUXDB_URL=...
+NEXT_PUBLIC_INFLUXDB_TOKEN=...
+NEXT_PUBLIC_INFLUXDB_ORG=...
+```
 
-2. **Processing Layer**
-   - JSON formatting
-   - Outlier filtering
-   - Error handling
+The bucket name (`IotWeather`) is hard-coded in the page components. Because the variables are `NEXT_PUBLIC_*` and queries run client-side, the InfluxDB token is visible to anyone who can open the page; use a read-only token scoped to this bucket.
 
-3. **Communication Layer**
-   - MQTT protocol (QoS 2)
-   - SSL/TLS encryption
-   - Automatic reconnection
+## Pages
 
-4. **Storage Layer**
-   - InfluxDB time-series database
-   - Data retention policies
-   - Query optimization
+- `/` shows the most recent temperature and pressure, with a snow or sun icon depending on whether the temperature is below 18 C
+- `/temperature` and `/pressure` list readings from the past 96 hours, averaged into 30-second windows with `aggregateWindow`
 
-## 🚀 Usage
+## Stack
 
-### Initial Setup
-1. Power up the Pico W
-2. Connect to Wi-Fi:
-   - Device will attempt to connect to configured network
-   - If failed, connects to "Pico_Wifi_AP" with password "123456789"
-   - Configure new Wi-Fi credentials through web interface
-
-### Monitoring
-- Access web dashboard: `http://your-deployed-url`
-- View Grafana dashboards: `http://localhost:3000`
-
-### Data Collection Modes
-1. Frequent Small Payload:
-   - 1-second intervals
-   - Real-time monitoring
-   - Higher network usage
-
-2. Infrequent Small Payload:
-   - 60-second intervals
-   - Reduced network traffic
-   - Power-efficient
-
-## 📈 Performance Metrics
-
-- Data sampling rate: 1s/60s
-- Network latency: ~0.02s average
-- Temperature range: -40°C to 85°C
-- Pressure range: 300hPa to 1100hPa
-
-## 🛡️ Security Features
-
-- SSL/TLS encryption for MQTT
-- Authentication tokens
-- HTTPS for web interfaces
-- Secure WebSocket (WSS)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit changes
-4. Push to the branch
-5. Submit a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- [MicroPython](https://micropython.org/)
-- [HiveMQ](https://www.hivemq.com/)
-- [InfluxDB](https://www.influxdata.com/)
-- [Next.js](https://nextjs.org/)
-- [Grafana](https://grafana.com/)
-
-## 🔗 References
-
-- [BMP280 Datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp280-ds001.pdf)
-- [MicroPython Documentation](https://docs.micropython.org/)
-- [MQTT Protocol](https://mqtt.org/)
-
-## 📧 Contact
-
-For questions or support, please open an issue in the repository.
+MicroPython, umqtt, and the BMP280 driver on the device; Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, and `@influxdata/influxdb-client` in the browser.
